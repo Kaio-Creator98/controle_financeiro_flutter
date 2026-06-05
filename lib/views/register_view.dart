@@ -2,51 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
-import '../viewmodels/dashboard_viewmodel.dart';
 
-class AuthView extends StatefulWidget {
-  const AuthView({super.key});
+class RegisterView extends StatefulWidget {
+  const RegisterView({super.key});
 
   @override
-  State<AuthView> createState() => _AuthViewState();
+  State<RegisterView> createState() => _RegisterViewState();
 }
 
-class _AuthViewState extends State<AuthView> {
+class _RegisterViewState extends State<RegisterView> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authViewModel = context.read<AuthViewModel>();
-    final dashboardViewModel = context.read<DashboardViewModel>();
 
-    final success = await authViewModel.login(
+    final error = await authViewModel.register(
+      name: _nameController.text,
       email: _emailController.text,
       password: _passwordController.text,
     );
 
     if (!mounted) return;
 
-    if (!success) {
+    if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('E-mail ou senha inválidos.')),
+        SnackBar(content: Text(error)),
       );
       return;
     }
 
-    await dashboardViewModel.loadTransactions(authViewModel.currentUser!.id!);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Usuário cadastrado com sucesso.')),
+    );
 
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/dashboard');
+    Navigator.pop(context);
   }
 
   @override
@@ -55,7 +57,7 @@ class _AuthViewState extends State<AuthView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Login'),
+        title: const Text('Cadastro'),
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -70,19 +72,35 @@ class _AuthViewState extends State<AuthView> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      Icons.account_balance_wallet,
-                      size: 80,
+                      Icons.person_add,
+                      size: 70,
                       color: Colors.deepPurple,
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Controle Financeiro',
+                      'Criar conta',
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Informe o nome.';
+                        }
+
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -130,21 +148,14 @@ class _AuthViewState extends State<AuthView> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: authViewModel.isLoading ? null : _submit,
+                        onPressed: authViewModel.isLoading ? null : _register,
                         child: authViewModel.isLoading
                             ? const CircularProgressIndicator()
                             : const Text(
-                                'Entrar',
+                                'Cadastrar',
                                 style: TextStyle(fontSize: 18),
                               ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/register');
-                      },
-                      child: const Text('Não tem conta? Cadastre-se'),
                     ),
                   ],
                 ),

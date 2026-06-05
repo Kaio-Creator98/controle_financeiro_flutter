@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/models/transaction_model.dart';
+
+import '../models/transaction_model.dart';
+import '../services/database_helper.dart';
 
 class DashboardViewModel extends ChangeNotifier {
-  final List<TransactionModel> _transactions = [
-    TransactionModel(title: "Salário", amount: 3000.0, isIncome: true),
-    TransactionModel(title: "Mercado", amount: 200.0, isIncome: false),
-    TransactionModel(title: "Freela", amount: 800.0, isIncome: true),
-  ];
+  final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
 
-  List<TransactionModel> get transactions => _transactions;
+  final List<TransactionModel> _transactions = [];
+  bool _isLoading = false;
+
+  List<TransactionModel> get transactions => List.unmodifiable(_transactions);
+  bool get isLoading => _isLoading;
 
   double get totalIncome {
     return _transactions
@@ -24,15 +26,44 @@ class DashboardViewModel extends ChangeNotifier {
 
   double get balance => totalIncome - totalExpense;
 
-  void addTransaction(String title, double amount, bool isIncome) {
-    _transactions.add(
-      TransactionModel(
-        title: title,
-        amount: amount,
-        isIncome: isIncome,
-      ),
-    );
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
 
+  Future<void> loadTransactions(int userId) async {
+    _setLoading(true);
+
+    try {
+      final data = await _databaseHelper.getTransactionsByUser(userId);
+      _transactions
+        ..clear()
+        ..addAll(data);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> addTransaction(TransactionModel transaction) async {
+    await _databaseHelper.insertTransaction(transaction);
+    await loadTransactions(transaction.userId);
+  }
+
+  Future<void> updateTransaction(TransactionModel transaction) async {
+    await _databaseHelper.updateTransaction(transaction);
+    await loadTransactions(transaction.userId);
+  }
+
+  Future<void> deleteTransaction({
+    required int id,
+    required int userId,
+  }) async {
+    await _databaseHelper.deleteTransaction(id);
+    await loadTransactions(userId);
+  }
+
+  void clear() {
+    _transactions.clear();
     notifyListeners();
   }
 }

@@ -1,36 +1,70 @@
 import 'package:flutter/material.dart';
 
+import '../models/user_model.dart';
+import '../services/database_helper.dart';
+
 class AuthViewModel extends ChangeNotifier {
-  bool isLogin = true;
+  final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
 
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+  UserModel? _currentUser;
+  bool _isLoading = false;
 
-  void toggleMode() {
-    isLogin = !isLogin;
+  UserModel? get currentUser => _currentUser;
+  bool get isLoading => _isLoading;
+  bool get isAuthenticated => _currentUser != null;
+
+  void _setLoading(bool value) {
+    _isLoading = value;
     notifyListeners();
   }
 
-  void submit(BuildContext context) {
-    final email = emailController.text;
-    final password = passwordController.text;
+  Future<bool> login({
+    required String email,
+    required String password,
+  }) async {
+    _setLoading(true);
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Preencha email e senha"),
-        ),
-      );
-      return;
+    try {
+      final user = await _databaseHelper.login(email.trim(), password.trim());
+      _currentUser = user;
+      return user != null;
+    } finally {
+      _setLoading(false);
     }
-
-    Navigator.pushReplacementNamed(context, '/dashboard');
   }
 
-  @override
-  void dispose() {
-    emailController.dispose();
-    passwordController.dispose();
-    super.dispose();
+  Future<String?> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    _setLoading(true);
+
+    try {
+      final existingUser = await _databaseHelper.getUserByEmail(email.trim());
+
+      if (existingUser != null) {
+        return 'Este e-mail já está cadastrado.';
+      }
+
+      await _databaseHelper.insertUser(
+        UserModel(
+          name: name.trim(),
+          email: email.trim(),
+          password: password.trim(),
+        ),
+      );
+
+      return null;
+    } catch (e) {
+      return 'Erro ao cadastrar usuário.';
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  void logout() {
+    _currentUser = null;
+    notifyListeners();
   }
 }
